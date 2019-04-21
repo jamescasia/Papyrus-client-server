@@ -5,30 +5,24 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.media.Image;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.os.AsyncTask;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Message;
+import android.os.Bundle;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.reflect.Method;
-import java.net.Socket;
 
 public class WifiTransferActivity extends AppCompatActivity {
 
@@ -37,10 +31,10 @@ public class WifiTransferActivity extends AppCompatActivity {
     private ImageView qrCodeView;
     private TextView ssidView;
     private TextView passView;
-    private WifiManager wifiManager;
-    private WifiConfiguration wifiConfiguration;
-    private String hotspotPSK;
-    private String hotspotSSID;
+    WifiManager wifiManager;
+    WifiConfiguration wifiConfiguration;
+      String hotspotPSK;
+      String hotspotSSID;
     private String[] permissions = {Manifest.permission.WRITE_SETTINGS, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION , Manifest.permission.ACCESS_NETWORK_STATE, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CHANGE_WIFI_STATE, Manifest.permission.ACCESS_WIFI_STATE, Manifest.permission.INTERNET };
 
     @Override
@@ -137,6 +131,7 @@ public class WifiTransferActivity extends AppCompatActivity {
     }
 
     private void createAndSetupHotspot(){
+        wifiManager.setWifiEnabled(false);
         wifiConfiguration = new WifiConfiguration();
         wifiConfiguration.SSID = generateSSID();
         wifiConfiguration.preSharedKey = generateKey();
@@ -181,33 +176,169 @@ public class WifiTransferActivity extends AppCompatActivity {
 
 
     }
-    private void connectToHotSpot(){
-//        initializeWifi();
-        WifiConfiguration wifiConfig = new WifiConfiguration();
-        wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
-        wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
-        wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-//        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-//        wifiConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
-
-
-        int netId = wifiManager.addNetwork(wifiConfig);
-        System.out.println(netId+"idzz");
+    private void prepareBeforeConnect(){
         if(!wifiManager.isWifiEnabled()){
             wifiManager.setWifiEnabled(true);
         }
-
-//        wifiManager.disconnect();
-        wifiManager.enableNetwork(netId, true  );
-//        wifiManager.updateNetwork()
-        if (wifiManager.reconnect()){
-
-            Toast.makeText(this, "connected"+wifiManager.getConnectionInfo(), Toast.LENGTH_SHORT).show();
-            System.out.println("connected"+wifiManager.getConnectionInfo());
+        try{
+            Method method = wifiManager.getClass().getDeclaredMethod("getWifiApState");
+            method.setAccessible(true);
+            int apWifiState = (Integer) method.invoke(wifiManager, (Object[]) null);
+            if(apWifiState == 13 || apWifiState == 12){
+                changeStateWifiAp(false);
+            }
+        }
+        catch (Exception e){
+            e.printStackTrace();
 
         }
 
+    }
+    public void onDoneConnect(){
+        Toast.makeText(this, "connected", Toast.LENGTH_SHORT).show();
 
     }
+
+    private void connectToHotSpot(){
+        prepareBeforeConnect();
+        ConnectHotspotThread cn = new ConnectHotspotThread(wifiManager);
+        cn.start();
+//      new ConnectHotspotTask().execute();
+
+//        while(!(wifiManager.getConnectionInfo().getSSID().contains(hotspotSSID)  || hotspotSSID.contains(wifiManager.getConnectionInfo().getSSID()) )){
+//            final WifiConfiguration wifiConfig = new WifiConfiguration();
+//            wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
+//            wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+//            wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+//
+//
+//            int netId = wifiManager.addNetwork(wifiConfig);
+//            wifiManager.enableNetwork(netId, true  );
+//            wifiManager.reconnect();
+//        }
+
+
+
+
+
+
+//        final Handler handler = new Handler();
+//        Runnable run= new Runnable() {
+//            public void run() {
+//                int netId = wifiManager.addNetwork(wifiConfig);
+//
+//
+//                if(netId == -1) {
+//                    System.out.println("didn't work");
+//                    handler.postDelayed(this, 0);
+//                }
+//                wifiManager.enableNetwork(netId, true  );
+//                wifiManager.reconnect();
+//            }
+//        };
+//
+//        handler.postDelayed(run, 0);
+
+
+
+    }
+    class ConnectHotspotThread extends Thread {
+        WifiManager wifiManager;
+        WifiConfiguration wifiConfig;
+        ConnectHotspotThread(WifiManager wifiManager ) {
+//             this.wifiConfig = wifiConfig;
+             this.wifiManager = wifiManager;
+        }
+
+        public void run() {
+            WifiConfiguration wifiConfig = new WifiConfiguration();
+            wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
+            wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+            wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+
+            int netId = wifiManager.addNetwork(wifiConfig);
+            while (netId == -1){
+//            while(!( wifiManager.getConnectionInfo() == null || hotspotSSID.contains(wifiManager.getConnectionInfo().getSSID()) )){
+                    wifiConfig = new WifiConfiguration();
+                wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
+                wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+
+
+
+
+
+                    wifiConfig = new WifiConfiguration();
+                    wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
+                    wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+                    wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+
+                    System.out.println("running");
+                    netId = wifiManager.addNetwork(wifiConfig);
+                }
+                wifiManager.enableNetwork(netId, true  );
+                wifiManager.reconnect();
+//            }
+            Toast.makeText(WifiTransferActivity.this, "connected", Toast.LENGTH_SHORT).show();
+
+        }
+    }
+
+
+
+    private class ConnectHotspotTask extends AsyncTask {
+
+        @Override
+        protected Object doInBackground(Object[] objects) {
+            WifiConfiguration wifiConfig = new WifiConfiguration();
+            wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
+            wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+            wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+
+
+
+
+            int netId = wifiManager.addNetwork(wifiConfig);
+            while (netId == -1){
+                wifiConfig = new WifiConfiguration();
+                wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
+                wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+
+                System.out.println("running");
+                netId = wifiManager.addNetwork(wifiConfig);
+            }
+            wifiManager.enableNetwork(netId, true  );
+            wifiManager.reconnect();
+//            }
+            Toast.makeText(WifiTransferActivity.this, "connected", Toast.LENGTH_SHORT).show();
+//            while(!(wifiManager.getConnectionInfo().getSSID().contains(hotspotSSID)  || hotspotSSID.contains(wifiManager.getConnectionInfo().getSSID()) )){
+//                final WifiConfiguration wifiConfig = new WifiConfiguration();
+//                wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
+//                wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+//                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+//
+//
+//                int netId = wifiManager.addNetwork(wifiConfig);
+//                wifiManager.enableNetwork(netId, true  );
+//                wifiManager.reconnect();
+//            }
+            onPostExecute();
+            return null;
+        }
+
+
+        protected void onProgressUpdate(Integer... progress) {
+//            setProgressPercent(progress[0]);
+        }
+
+        protected void onPostExecute( ) {
+            onDoneConnect();
+
+//            Toast.makeText(WifiTransferActivity.this, "", Toast.LENGTH_SHORT).show();
+//            showDialog("Downloaded " + result + " bytes");
+        }
+    }
+
 
 }
