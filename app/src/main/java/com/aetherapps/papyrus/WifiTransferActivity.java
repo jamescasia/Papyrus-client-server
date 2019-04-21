@@ -139,11 +139,10 @@ public class WifiTransferActivity extends AppCompatActivity {
     private void createAndSetupHotspot(){
         wifiConfiguration = new WifiConfiguration();
         wifiConfiguration.SSID = generateSSID();
-//        wifiConfiguration.preSharedKey = generateKey();
-        wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        wifiConfiguration.preSharedKey = generateKey();
         wifiConfiguration.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
         wifiConfiguration.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-//        wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+        wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
         changeStateWifiAp(true);
 
     }
@@ -186,8 +185,8 @@ public class WifiTransferActivity extends AppCompatActivity {
 //        initializeWifi();
         WifiConfiguration wifiConfig = new WifiConfiguration();
         wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
-        wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-//        wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+        wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+        wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
 //        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
 //        wifiConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
 
