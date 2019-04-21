@@ -64,7 +64,7 @@ public class WifiTransferActivity extends AppCompatActivity {
         connectBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                connectToHotSpot();
+                connectToHotSpot("hello", "12345678");
             }
         });
 
@@ -177,6 +177,7 @@ public class WifiTransferActivity extends AppCompatActivity {
 
     }
     private void prepareBeforeConnect(){
+
         if(!wifiManager.isWifiEnabled()){
             wifiManager.setWifiEnabled(true);
         }
@@ -199,9 +200,9 @@ public class WifiTransferActivity extends AppCompatActivity {
 
     }
 
-    private void connectToHotSpot(){
+    private void connectToHotSpot(String SSID, String passKey){
         prepareBeforeConnect();
-        ConnectHotspotThread cn = new ConnectHotspotThread(wifiManager);
+        ConnectHotspotThread cn = new ConnectHotspotThread(wifiManager,   SSID,   passKey);
         cn.start();
 //      new ConnectHotspotTask().execute();
 
@@ -245,23 +246,27 @@ public class WifiTransferActivity extends AppCompatActivity {
     class ConnectHotspotThread extends Thread {
         WifiManager wifiManager;
         WifiConfiguration wifiConfig;
-        ConnectHotspotThread(WifiManager wifiManager ) {
+        String SSID;
+        String passKey;
+        ConnectHotspotThread(WifiManager wifiManager, String SSID, String passKey ) {
 //             this.wifiConfig = wifiConfig;
              this.wifiManager = wifiManager;
+             this.SSID = SSID;
+             this.passKey = passKey;
         }
 
         public void run() {
             WifiConfiguration wifiConfig = new WifiConfiguration();
-            wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
-            wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+            wifiConfig.SSID = String.format("\"%s\"", SSID);
+            wifiConfig.preSharedKey =String.format("\"%s\"", passKey);
             wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
 
             int netId = wifiManager.addNetwork(wifiConfig);
             while (netId == -1){
 //            while(!( wifiManager.getConnectionInfo() == null || hotspotSSID.contains(wifiManager.getConnectionInfo().getSSID()) )){
                     wifiConfig = new WifiConfiguration();
-                wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
-                wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+                wifiConfig.SSID = String.format("\"%s\"", SSID);
+                wifiConfig.preSharedKey =String.format("\"%s\"", passKey);
                 wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
 
 
@@ -269,8 +274,8 @@ public class WifiTransferActivity extends AppCompatActivity {
 
 
                     wifiConfig = new WifiConfiguration();
-                    wifiConfig.SSID = String.format("\"%s\"", hotspotSSID);
-                    wifiConfig.preSharedKey =String.format("\"%s\"", hotspotPSK);
+                    wifiConfig.SSID = String.format("\"%s\"", SSID);
+                    wifiConfig.preSharedKey =String.format("\"%s\"", passKey);
                     wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
 
                     System.out.println("running");
@@ -279,7 +284,7 @@ public class WifiTransferActivity extends AppCompatActivity {
                 wifiManager.enableNetwork(netId, true  );
                 wifiManager.reconnect();
 //            }
-            Toast.makeText(WifiTransferActivity.this, "connected", Toast.LENGTH_SHORT).show();
+//            Toast.makeText(WifiTransferActivity.this, "connected", Toast.LENGTH_SHORT).show();
 
         }
     }
