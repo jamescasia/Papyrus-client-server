@@ -6,27 +6,21 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:required="true" />
-
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- <uses-permission android:name="android.permission." /> -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_ADMIN"
-        android:required="true" />
+
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission
-        android:name="android.permission.BLUETOOTH"
-        android:required="true" />
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_PRIVILEGED"
-        android:required="true" />
+
     <uses-permission
         android:name="android.permission.INTERNET"
-        android:required="false" />
+        android:required="true" />
 
     <application
         android:allowBackup="true"
@@ -38,8 +32,6 @@
 
         <!-- <activity android:name="" -->
         <activity android:name=".MainActivity">
-        </activity>
-        <activity android:name=".WifiTransferActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
