@@ -1,45 +1,43 @@
 package com.aetherapps.papyrus;
 
+import android.app.Activity;
+import android.widget.Toast;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+
 /**
  * Created by James on 27/04/2019.
  */
 
-import android.app.Activity;
-import android.widget.Toast;
-
-import java.net.*;
-import java.io.*;
-
-public class Server extends Thread{
+public class Client extends Thread {
+    String ip;
     int port;
-    ServerSocket ss;
     Socket s;
-    Activity self;
-    String send;
     PrintWriter pr;
+    Activity self;
 
-
-    Server(int port, String send, Activity self){
+    Client(String ip, int port, Activity self){
+        this.ip = ip;
         this.port = port;
         this.self = self;
-        this.send = send;
+
 
 
     }
+
     public void run(){
         try {
-            ss = new ServerSocket(port);
+            s = new Socket(ip, port);
         } catch (IOException e) {
-            System.out.println("Error creating server");
+            System.out.print("error creating socket");
             e.printStackTrace();
         }
-        try {
-            s = ss.accept();
-        } catch (IOException e) {
 
-            System.out.println("Error accepting request");
-            e.printStackTrace();
-        }
         try {
             pr = new PrintWriter(s.getOutputStream());
         } catch (IOException e) {
@@ -57,18 +55,17 @@ public class Server extends Thread{
         }
         public void run(){
             pr.println(string);
+
             pr.flush();
 
         }
     }
 
     public void sendSomething(String string, File file){
-        sendThread s = new sendThread(string, file);
+        sendThread s =new sendThread(string, file);
         s.start();
 
-
     }
-
     public void listenForData(){
         InputStreamReader in = null;
         try {
@@ -106,5 +103,4 @@ public class Server extends Thread{
             }
         });
     }
-
 }

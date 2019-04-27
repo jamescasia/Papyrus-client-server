@@ -9,11 +9,13 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
 import android.os.FileObserver;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.format.Formatter;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -33,9 +35,9 @@ import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     private FileObserver observer;
-    private Button pairBtn;
+    private Button serverBtn;
     private Button sendBtn;
-    private Button recvBtn;
+    private Button clientBtn;
     private Activity self;
     private File receiptFile;
     private String invoicesPath;
@@ -48,8 +50,11 @@ public class MainActivity extends AppCompatActivity {
     private String btMacAddress;
     private OutputStream out;
     private InputStream in;
+    Server server;
+    Client client;
+    //    WifiManager wifiManager;
     private BroadcastReceiver mReceiver;
-    private String[] permissions = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION , Manifest.permission.ACCESS_NETWORK_STATE, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CHANGE_WIFI_STATE, Manifest.permission.ACCESS_WIFI_STATE, Manifest.permission.INTERNET };
+    private String[] permissions = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_NETWORK_STATE, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CHANGE_WIFI_STATE, Manifest.permission.ACCESS_WIFI_STATE, Manifest.permission.INTERNET};
 
 
     @Override
@@ -61,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(self, "granted"+grantResults.toString(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(self, "granted" + grantResults.toString(), Toast.LENGTH_SHORT).show();
 
                 } else {
 
@@ -72,32 +77,44 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        pairBtn = findViewById(R.id.pairBtn);
-        sendBtn= findViewById(R.id.send);
-        recvBtn= findViewById(R.id.recv);
+        sendBtn = findViewById(R.id.send);
+        clientBtn = findViewById(R.id.client);
+        serverBtn = findViewById(R.id.server);
+
         macAddressLabel = findViewById(R.id.macAdressLabel);
         macEditText = findViewById(R.id.macEditText);
         btMacAddress = android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "bluetooth_address");
         macAddressLabel.setText(btMacAddress);
-        recvBtn.setOnClickListener(new View.OnClickListener() {
+
+        serverBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                startServer();
             }
         });
         sendBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+//                client.sendSomething("sent from client" , null);
+                if (server != null)
+                {
+                    server.sendSomething("i love you jihyo twice from server", null);
+                }
+                else {
+                    client.sendSomething("from client", null);
+                }
 
             }
         });
-        pairBtn.setOnClickListener(new View.OnClickListener() {
+        clientBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                startClient();
 
             }
         });
@@ -109,11 +126,10 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Toast.makeText(self, "has permissions", Toast.LENGTH_SHORT).show();
         }
-        if ( !checkWifi()) {
-            Intent[] enableRequests = { new Intent(Settings.ACTION_WIRELESS_SETTINGS)};
+        if (!checkWifi()) {
+            Intent[] enableRequests = {new Intent(Settings.ACTION_WIRELESS_SETTINGS)};
             startActivities(enableRequests);
         }
-
 
 
     }
@@ -156,13 +172,26 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void startServer() {
+//        wifiManager = getApplicationContext().getSystemService(WIFI_SERVICE);
+        WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+        String ip = Formatter.formatIpAddress(wifiManager.getConnectionInfo().getIpAddress());
+        Toast.makeText(self, "ip: " + ip, Toast.LENGTH_SHORT).show();
+        macAddressLabel.setText(ip);
 
 
+        server = new Server(5050, "haha", self);
+        server.start();
+    }
+
+    private void startClient() {
 
 
+        client = new Client(macEditText.getText().toString(), 5050, self);
+        client.start();
 
 
-
+    }
 
 
 }
