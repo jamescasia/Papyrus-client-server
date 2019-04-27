@@ -19,6 +19,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.format.Formatter;
 import android.util.Log;
+
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -26,6 +27,16 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.google.android.gms.vision.Frame;
+import com.google.android.gms.vision.barcode.Barcode;
+import com.google.android.gms.vision.barcode.BarcodeDetector;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.WriterException;
+import com.google.zxing.common.BitMatrix;
+import com.journeyapps.barcodescanner.BarcodeEncoder;
+import com.notbytes.barcode_reader.BarcodeReaderActivity;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -35,8 +46,10 @@ import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.UUID;
+import com.aetherapps.papyrus.Utils.*;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int BARCODE_READER_ACTIVITY_REQUEST = 1208;
     private FileObserver observer;
     private Button serverBtn;
     private Button sendBtn;
@@ -61,6 +74,11 @@ public class MainActivity extends AppCompatActivity {
     private String hotspotSSID;
     private String hotspotPSK;
     private String device_ip;
+
+
+    private String scanned_hotspotSSID;
+    private String scanned_hotspotPSK;
+    private String scanned_device_ip;
     private BroadcastReceiver mReceiver;
     private String[] permissions = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_NETWORK_STATE, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.CHANGE_WIFI_STATE, Manifest.permission.ACCESS_WIFI_STATE, Manifest.permission.INTERNET};
 
@@ -111,36 +129,30 @@ public class MainActivity extends AppCompatActivity {
         }
         if (!checkWifi()) {
             Intent[] enableRequests = {new Intent(Settings.ACTION_WIRELESS_SETTINGS)};
-            startActivities(enableRequests);
+//            startActivities(enableRequests);
         }
 
-
+        initializeWifi();
         setupBtns();
 
 
-
-
-
     }
-    private void
 
-    private void setupBtns(){
+    private void setupBtns() {
         serverBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startServer();
+                serverSetup();
             }
         });
         sendBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 //                client.sendSomething("sent from client" , null);
-                if (server != null)
-
+                if (server != null && server.client_ready)
                 {
                     server.sendSomething("i love you jihyo twice from server", null);
-                }
-                else {
+                } else {
                     client.sendSomething("from client", null);
                 }
 
@@ -149,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
         clientBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startClient();
+                clientSetup();
 
             }
         });
@@ -185,6 +197,25 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(MainActivity.this, permissions, 1);
 
     }
+    private Boolean checkOnHotspot(){
+        try {
+            Method method = wifiManager.getClass().getDeclaredMethod("getWifiApState");
+            method.setAccessible(true);
+            int apWifiState = (Integer) method.invoke(wifiManager, (Object[]) null);
+            if (apWifiState == 13 || apWifiState == 12) {
+                return true;
+            }
+            else return false;
+
+        }
+        catch (Exception e){
+            System.out.println("error hotstpot");
+            return false;
+
+        }
+
+
+    }
 
     private Boolean checkWifi() {
         ConnectivityManager connManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -197,15 +228,14 @@ public class MainActivity extends AppCompatActivity {
         WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
 
 
-
         server = new Server(5050, "haha", self);
         server.start();
     }
 
-    private void startClient() {
+    private void startClient(String ip) {
 
 
-        client = new Client(macEditText.getText().toString(), 5050, self);
+        client = new Client(ip, 5050, self, invoicesPath);
         client.start();
 
 
@@ -214,6 +244,7 @@ public class MainActivity extends AppCompatActivity {
     private Boolean changeStateWifiAp(boolean activated) {
         Method method;
         try {
+
             method = wifiManager.getClass().getDeclaredMethod("setWifiApEnabled", WifiConfiguration.class, Boolean.TYPE);
             method.invoke(wifiManager, wifiConfiguration, activated);
             return true;
@@ -225,33 +256,36 @@ public class MainActivity extends AppCompatActivity {
 
     private void initializeWifi() {
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        device_ip = Formatter.formatIpAddress(wifiManager.getConnectionInfo().getIpAddress());
-        Toast.makeText(self, "ip: " + device_ip, Toast.LENGTH_SHORT).show();
+        wifiConfiguration = new WifiConfiguration();
         macAddressLabel.setText(device_ip);
 
     }
 
-    private void createAndSetupHotspot() {
+    private boolean createAndSetupHotspot() {
         try {
-            Method method = wifiManager.getClass().getDeclaredMethod("getWifiApState");
-            method.setAccessible(true);
-            int apWifiState = (Integer) method.invoke(wifiManager, (Object[]) null);
-            if (apWifiState == 13 || apWifiState == 12) {
+            if(checkOnHotspot()){
                 changeStateWifiAp(false);
             }
+
+            wifiManager.setWifiEnabled(false);
+            generateCredentials();
+
+            wifiConfiguration.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
+            wifiConfiguration.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
+            wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+
+            device_ip = Utils.getIPAddress(true);
+            Toast.makeText(self, "ip: " + device_ip, Toast.LENGTH_SHORT).show();
+            generateQRCode(device_ip, hotspotSSID, hotspotPSK);
+            changeStateWifiAp(true);
+
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
 
         }
-        wifiManager.setWifiEnabled(false);
-        wifiConfiguration = new WifiConfiguration();
-        generateCredentials();
 
-        wifiConfiguration.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
-        wifiConfiguration.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-        wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-        generateQRCode(device_ip,hotspotSSID, hotspotPSK);
-        changeStateWifiAp(true);
 
     }
 
@@ -291,11 +325,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void generateQRCode(String ip, String SSID, String Key) {
-        String string = ip + "|" + SSID + "|" + Key;
+        String string = ip + ":" + SSID + ":" + Key;
         MultiFormatWriter multiFormatWriter = new MultiFormatWriter();
         BitMatrix bitMatrix = null;
         try {
-            bitMatrix = multiFormatWriter.encode(string, BarcodeFormat.QR_CODE, 500, 500);
+            bitMatrix = multiFormatWriter.encode(string, BarcodeFormat.QR_CODE, 170, 170);
         } catch (WriterException e) {
             e.printStackTrace();
         }
@@ -327,7 +361,7 @@ public class MainActivity extends AppCompatActivity {
 
     class ConnectHotspotThread extends Thread {
         WifiManager wifiManager;
-        WifiConfiguration wifiConfig;
+//        WifiConfiguration wifiConfig;
         String SSID;
         String passKey;
 
@@ -349,13 +383,13 @@ public class MainActivity extends AppCompatActivity {
                 wifiConfig.SSID = String.format("\"%s\"", SSID);
                 wifiConfig.preSharedKey = String.format("\"%s\"", passKey);
                 wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+//
+//                wifiConfig = new WifiConfiguration();
+//                wifiConfig.SSID = String.format("\"%s\"", SSID);
+//                wifiConfig.preSharedKey = String.format("\"%s\"", passKey);
+//                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
 
-                wifiConfig = new WifiConfiguration();
-                wifiConfig.SSID = String.format("\"%s\"", SSID);
-                wifiConfig.preSharedKey = String.format("\"%s\"", passKey);
-                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-
-                System.out.println("running");
+                System.out.println("SSID:" + SSID +" PSK:" + passKey);
                 netId = wifiManager.addNetwork(wifiConfig);
             }
             wifiManager.enableNetwork(netId, true);
@@ -366,9 +400,63 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    private void scanQrCodeWifi() {
+        Intent launchIntent = BarcodeReaderActivity.getLaunchIntent(this, true, false);
+        startActivityForResult(launchIntent, BARCODE_READER_ACTIVITY_REQUEST);
+//        Intent launchIntent = BarcodeReaderActivity.getLaunchIntent(this, true, false);
+//        startActivityForResult(launchIntent, BARCODE_READER_ACTIVITY_REQUEST);
+//        BarcodeDetector barcodeDetector = new BarcodeDetector.Builder(getApplicationContext()).setBarcodeFormats(Barcode.QR_CODE).build();
+//
+//        Frame frame = new Frame.Builder();
+
+
+    }
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (resultCode != Activity.RESULT_OK) {
+            Toast.makeText(this, "error in  scanning", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (requestCode == BARCODE_READER_ACTIVITY_REQUEST && data != null) {
+            Barcode barcode = data.getParcelableExtra(BarcodeReaderActivity.KEY_CAPTURED_BARCODE);
+            macAddressLabel.setText(barcode.rawValue);
+            Toast.makeText(this, barcode.rawValue, Toast.LENGTH_SHORT).show();
+            scanned_device_ip = barcode.rawValue.split(":")[0];
+            scanned_hotspotSSID = barcode.rawValue.split(":")[1];
+            scanned_hotspotPSK= barcode.rawValue.split(":")[2];
+
+            connectToHotSpot(scanned_hotspotSSID, scanned_hotspotPSK);
+        }
+
+    }
+
+    private void serverSetup() {
+
+        qrCodeView.setVisibility(View.VISIBLE);
+        if (createAndSetupHotspot() && server == null) {
+
+            startServer();
+            if(server.client_ready){
+                server.sendSomething("server setupped: I fancy you Park JiHyo", null);
+
+            }
+        }
+
+    }
+
+    private void clientSetup() {
+        qrCodeView.setVisibility(View.INVISIBLE);
+        scanQrCodeWifi();
+//        startClient(scanned_device_ip);
+
+    }
+
+
     private void connectToHotSpot(String SSID, String passKey) {
         prepareBeforeConnect();
-        WifiTransferActivity.ConnectHotspotThread cn = new MainActivity.ConnectHotspotThread(wifiManager, SSID, passKey);
+        MainActivity.ConnectHotspotThread cn = new MainActivity.ConnectHotspotThread(wifiManager, SSID, passKey);
         cn.start();
 //      new ConnectHotspotTask().execute();
 
