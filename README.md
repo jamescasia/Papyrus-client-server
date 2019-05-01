@@ -1,0 +1,2 @@
+Steps
+This is a file-sharing app just like shareit. A file is automatically saved to the 'invoicesPath' and the server phone detects it. The server phone then creates a WPA/PSK network then generates a qr code for the input details. The client phone will scan the qr code and automatically connect to the network and listen. After connection, the server phone automatically sends the detected newly added file to the client phone.
