@@ -121,7 +121,10 @@ public class Utils {
                     }
                 }
             }
-        } catch (Exception ignored) { } // for now eat exceptions
+        } catch (Exception ignored) {
+            System.out.print("ignored");
+            ignored.printStackTrace();
+        } // for now eat exceptions
         return "";
     }
 

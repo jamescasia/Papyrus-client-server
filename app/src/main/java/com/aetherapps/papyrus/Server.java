@@ -22,12 +22,15 @@ public class Server extends Thread {
     BufferedInputStream bis = null;
     OutputStream os = null;
     Boolean started = false;
+    OnTaskCompleted callback;
+    File file;
 
-    Server(int port, String send, Activity self) {
+
+    Server(int port, Activity self, File file) {
         this.port = port;
         this.self = self;
-        this.send = send;
         this.started = true;
+        this.file = file;
 
 
     }
@@ -40,6 +43,7 @@ public class Server extends Thread {
             e.printStackTrace();
         }
         try {
+            showToast("success server");
             s = ss.accept();
         } catch (IOException e) {
 
@@ -48,7 +52,6 @@ public class Server extends Thread {
         }
         try {
             pr = new PrintWriter(s.getOutputStream());
-            client_ready = true;
         } catch (IOException e) {
             e.printStackTrace();
             System.out.println("Error print");
@@ -71,19 +74,37 @@ public class Server extends Thread {
             if (s != null) {
                 pr.println(string);
                 pr.flush();
-                byte[] byteArr = new byte[(int) file.length()];
-                try {
-                    fis = new FileInputStream(file);
-                    bis = new BufferedInputStream(fis);
-                    bis.read(byteArr, 0, byteArr.length);
-                    os = s.getOutputStream();
-                    System.out.println("Sending " + file.getAbsolutePath() + "(" + byteArr.length + " bytes)");
-                    os.write(byteArr, 0, byteArr.length);
-                    os.flush();
-                } catch (Exception e) {
-                    System.out.println("failed ");
-                    e.printStackTrace();
 
+                if (file != null) {
+                    try {
+
+                        FileInputStream fr = new FileInputStream(file);
+                        byte b[] = new byte[2000000];
+                        fr.read(b, 0, b.length);
+                        os = s.getOutputStream();
+                        os.write(b, 0, b.length);
+
+                    } catch (Exception e) {
+                        System.out.print("error");
+                        e.printStackTrace();
+
+                    }
+
+
+//                    byte[] byteArr = new byte[(int) file.length()];
+//                    try {
+//                        fis = new FileInputStream(file);
+//                        bis = new BufferedInputStream(fis);
+//                        bis.read(byteArr, 0, byteArr.length);
+//                        os = s.getOutputStream();
+//                        System.out.println("Sending " + file.getAbsolutePath() + "(" + byteArr.length + " bytes)");
+//                        os.write(byteArr, 0, byteArr.length);
+//                        os.flush();
+//                    } catch (Exception e) {
+//                        System.out.println("failed ");
+//                        e.printStackTrace();
+//
+//                    }
                 }
             }
 
@@ -117,12 +138,26 @@ public class Server extends Thread {
                 if (str != null) {
                     System.out.println("Message" + str);
                     showToast("Message: " + str);
+                    if (str.equals("init")) {
+                        clientInitialized();
+
+                    }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
+
+    }
+
+    private void clientInitialized() {
+        client_ready = true;
+        sendSomething("size:" + file.length(), null);
+        System.out.println("size of files" + file.length());
+        String a[] = file.getAbsolutePath().split("\\.");
+        showToast(file.getAbsolutePath() + a[0]);
+        sendSomething("ext:" + a[a.length - 1], file);
 
     }
 

@@ -1,6 +1,7 @@
 package com.aetherapps.papyrus;
 
 import android.app.Activity;
+import android.renderscript.ScriptGroup;
 import android.widget.Toast;
 
 import java.io.BufferedOutputStream;
@@ -29,21 +30,21 @@ public class Client extends Thread {
     int current = 0;
     FileOutputStream fos = null;
     BufferedOutputStream bos = null;
+    String ext;
 
-    Client(String ip, int port, Activity self,String filePath){
+    Client(String ip, int port, Activity self, String filePath) {
         this.ip = ip;
         this.port = port;
         this.self = self;
-        this.filePath = filePath + generateRandomString(6);
-
+        this.filePath = filePath + "/" + generateRandomString(6);
 
 
     }
 
-    public void run(){
+    public void run() {
         try {
             s = new Socket(ip, port);
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.print("error creating socket");
             e.printStackTrace();
         }
@@ -53,17 +54,23 @@ public class Client extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        pr.println("init");
+        pr.flush();
         listenForData();
+        listenForFile();
 
     }
-    class sendThread extends Thread{
+
+    class sendThread extends Thread {
         String string;
         File file;
-        sendThread(String string, File file){
+
+        sendThread(String string, File file) {
             this.string = string;
             this.file = file;
         }
-        public void run(){
+
+        public void run() {
             pr.println(string);
 
             pr.flush();
@@ -71,50 +78,64 @@ public class Client extends Thread {
         }
     }
 
-    public void sendSomething(String string, File file){
-        sendThread s =new sendThread(string, file);
+    public void sendSomething(String string, File file) {
+        sendThread s = new sendThread(string, file);
         s.start();
 
     }
-    public void listenForFile(){
-        try {
-            System.out.println("Connecting...");
 
-            // receive file
-            byte [] mybytearray  = new byte [fileSize];
-            InputStream is = s.getInputStream();
-            fos = new FileOutputStream(filePath);
-            bos = new BufferedOutputStream(fos);
-            bytesRead = is.read(mybytearray,0,mybytearray.length);
-            current = bytesRead;
+    public void listenForFile() {
+        try{
 
-            do {
-                bytesRead = is.read(mybytearray, current, (mybytearray.length-current));
-                if(bytesRead >= 0) current += bytesRead;
-            } while(current< fileSize);
-
-            bos.write(mybytearray, 0 , current);
-            bos.flush();
-            System.out.println("File " + filePath
-                    + " downloaded (" + current + " bytes read)");
-        }
+        byte [] b = new byte[2000000];
+        InputStream is = s.getInputStream();
+        FileOutputStream fr = new FileOutputStream(filePath+"." +ext);
+        is.read(b, 0, b.length);
+        fr.write(b, 0, b.length);}
         catch (Exception e){
-            System.out.println("error");
-            e.printStackTrace();
+            showToast("failed to receive");
+        }
 
-        }
-        finally {
-            try{
-            if (fos != null) fos.close();
-            if (bos != null) bos.close();
-            if (s != null) s.close();}
-            catch (Exception e){
-                System.out.print("error flushing");
-                e.printStackTrace();
-            }
-        }
+
+//        try {
+//            System.out.println("Connecting...");
+//
+//            // receive file
+//            byte[] mybytearray = new byte[fileSize];
+//            InputStream is = s.getInputStream();
+//            fos = new FileOutputStream(filePath + "." + ext);
+//            bos = new BufferedOutputStream(fos);
+//            bytesRead = is.read(mybytearray, 0, mybytearray.length);
+//            current = bytesRead;
+//
+//            do {
+//                bytesRead = is.read(mybytearray, current, (mybytearray.length - current));
+//                if (bytesRead >= 0) current += bytesRead;
+//            } while (current < fileSize);
+//
+//            bos.write(mybytearray, 0, current);
+//            bos.flush();
+////            Toast.makeText(self, "bytes: "+ current, Toast.LENGTH_SHORT).show();
+//            showToast("bytes" + current);
+//            System.out.println("File " + filePath
+//                    + " downloaded (" + current + " bytes read)");
+//        } catch (Exception e) {
+//            System.out.println("error");
+//            e.printStackTrace();
+//
+//        } finally {
+//            try {
+//                if (fos != null) fos.close();
+//                if (bos != null) bos.close();
+//                if (s != null) s.close();
+//            } catch (Exception e) {
+//                System.out.print("error flushing");
+//                e.printStackTrace();
+//            }
+//        }
     }
-    public void listenForData(){
+
+    public void listenForData() {
         InputStreamReader in = null;
         try {
             in = new InputStreamReader(s.getInputStream());
@@ -127,18 +148,24 @@ public class Client extends Thread {
         String str = null;
 
 
-        while(true){
+        while (true) {
             try {
                 str = bf.readLine();
 
-                if(str!= null){
-                    if(str.contains("size:")){
+                if (str != null) {
 
-                        fileSize = Integer.parseInt(str.split(":")[1]);
-
-                    }
                     System.out.println("Message" + str);
                     showToast("Message: " + str);
+                    if (str.contains("size:")) {
+                        fileSize = 100 * Integer.parseInt(str.split(":")[1]);
+                        fileSize = 20000000;
+                        showToast("size" + fileSize);
+                    }
+                    if (str.contains("ext:")) {
+                        ext = str.split(":")[1];
+                        break;
+
+                    }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -148,7 +175,7 @@ public class Client extends Thread {
 
     }
 
-    private void showToast(final String string){
+    private void showToast(final String string) {
         self.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -156,6 +183,7 @@ public class Client extends Thread {
             }
         });
     }
+
     public String generateRandomString(int n) {
         String AlphaNumericString = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                 + "0123456789"
